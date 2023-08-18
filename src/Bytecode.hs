@@ -1,14 +1,25 @@
 {-# LANGUAGE BinaryLiterals #-}
 
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module Bytecode where
 
 import           Control.Lens ( Lens'
-                              , lens )
+                              , lens
+                              , makeLenses
+                              , over
+                              , to
+                              , view )
 
 import           Data.Bits    ( (.<<.)
                               , (.>>.)
                               , Bits(..) )
 import           Data.Word    ( Word32 )
+
+import           Text.Printf  ( printf )
 
 {-
 Ref: https://www.lua.org/source/5.4/lopcodes.h.html
@@ -26,14 +37,24 @@ isJ                           sJ (signed)(25)            |   Op(7)     |
   the written unsigned value minus K, where K is half the maximum for the
   corresponding unsigned argument.
 -}
-newtype Instruction = Instruction { payload :: Word32 }
-    deriving ( Show
-             , Eq )
+newtype Instruction = Instruction { _payload :: Word32 }
+    deriving newtype ( Eq
+                     , Num )
+
+instance Show Instruction where
+  show = printf "%#.8x" . _payload
+
+makeLenses ''Instruction
 
 -- | clear out certain bits in a word
 {-# INLINE mask #-}
 mask :: Int -> Int -> Word32 -> Word32
 mask start len w = w .&. complement (((1 .<<. len) - 1) .<<. start)
+
+{-# INLINE blit #-}
+blit :: Int -> Int -> Word32 -> Word32 -> Word32
+blit start len src dst = mask start len dst
+    .|. ((src .&. ((1 .<<. len) - 1)) .<<. start)
 
 {-# INLINE getA #-}
 getA :: Word32 -> Word32
@@ -80,8 +101,52 @@ getOpcode w =
   where
     w' = fromIntegral (w .&. 0x7F)
 
+{-
+
+>>> total :: Instruction = 5
+
+>>> view _opcode total
+Just OP_LOADFALSE
+
+>>> set _opcode (Just OP_EXTRAARG) total
+0x00000052
+
+-}
+_opcode :: Lens' Instruction (Maybe Opcode)
+_opcode =
+    lens (view (payload . to getOpcode))
+         (\i opcode -> case opcode of
+            Nothing      -> over payload (.|. 0x7F) i
+            Just opcode' ->
+                over payload (blit 0 7 (fromIntegral (fromEnum opcode'))) i)
+
 _A :: Lens' Instruction Word32
-_A = lens (getA . payload) (\i a -> i { payload = mask 7 8 a .|. (a .<<. 7) })
+_A = lens (view (payload . to getA)) (\i a -> over payload (blit 7 8 a) i)
+
+_B :: Lens' Instruction Word32
+_B = lens (view (payload . to getB)) (\i b -> over payload (blit 16 8 b) i)
+
+_k :: Lens' Instruction Word32
+_k = lens (view (payload . to getk)) (\i k -> over payload (blit 15 1 k) i)
+
+_C :: Lens' Instruction Word32
+_C = lens (view (payload . to getC)) (\i c -> over payload (blit 24 8 c) i)
+
+_sC :: Lens' Instruction Word32
+_sC = lens (view (payload . to getsC)) (\i sC -> over payload (blit 24 8 sC) i)
+
+_Bx :: Lens' Instruction Word32
+_Bx = lens (view (payload . to getBx)) (\i bx -> over payload (blit 15 9 bx) i)
+
+_sBx :: Lens' Instruction Word32
+_sBx = lens (view (payload . to getsBx))
+            (\i sBx -> over payload (blit 15 9 sBx) i)
+
+_Ax :: Lens' Instruction Word32
+_Ax = lens (view (payload . to getAx)) (\i ax -> over payload (blit 7 25 ax) i)
+
+_sJ :: Lens' Instruction Word32
+_sJ = lens (view (payload . to getsJ)) (\i sJ -> over payload (blit 7 25 sJ) i)
 
 -- | Lua VM opcodes
 data Opcode
