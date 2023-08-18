@@ -70,15 +70,15 @@ getk w = (w .>>. 15) .&. 0x1
 
 {-# INLINE getC #-}
 getC :: Word32 -> Word32
-getC w = (w .>>. 24) .&. 0xFF
+getC w = w .>>. 24
 
 {-# INLINE getsC #-}
 getsC :: Word32 -> Word32
-getsC w = (mask 0 24 w .>>. 24) - (2 ^ (7 :: Int))
+getsC w = w .>>. 24 - (2 ^ (7 :: Int))
 
 {-# INLINE getBx #-}
 getBx :: Word32 -> Word32
-getBx w = (w .>>. 15) .&. 0x1FF
+getBx w = w .>>. 15
 
 {-# INLINE getsBx #-}
 getsBx :: Word32 -> Word32
