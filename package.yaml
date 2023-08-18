@@ -87,3 +87,5 @@ tests:
       - DSL
       - sydtest
       - sydtest-discover
+      - sydtest-hedgehog
+      - random
