@@ -8,4 +8,5 @@ prettyprint :: [Text] -> Text
 prettyprint = Text.unlines
 
 newtype Transpile a = Transpile { runTranspile :: [a] }
-    deriving ( Show, Eq )
+    deriving ( Show
+             , Eq )

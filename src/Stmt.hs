@@ -23,5 +23,6 @@ data Stmt m a where
 makeSem ''Stmt
 
 runStmt :: Member (Embed Transpile) r => Sem (Stmt ': r) a -> Sem r a
-runStmt = interpret $ \case
-    Expr e -> undefined
+runStmt = interpret
+    $ \case
+      Expr e -> undefined

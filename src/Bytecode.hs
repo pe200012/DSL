@@ -1,6 +1,7 @@
 module Bytecode where
 
-import           Control.Lens ( Lens', lens )
+import           Control.Lens ( Lens'
+                              , lens )
 
 import           Data.Bits    ( Bits(..) )
 import           Data.Word    ( Word32 )
@@ -22,7 +23,8 @@ isJ                           sJ (signed)(25)            |   Op(7)     |
   corresponding unsigned argument.
 -}
 data Instruction = Instruction { opcode :: Opcode, payload :: Word32 }
-    deriving ( Show, Eq )
+    deriving ( Show
+             , Eq )
 
 -- | clear out certain bits in a word
 {-# INLINE mask #-}
@@ -66,8 +68,8 @@ _A = lens (getA . payload)
           (\i a -> i { payload = mask 7 8 a .|. (a `shiftL` 7) })
 
 -- | Lua VM opcodes
-data Opcode =
-      OP_MOVE  -- ^       A B     R[A] := R[B]
+data Opcode
+    = OP_MOVE  -- ^       A B     R[A] := R[B]
     | OP_LOADI  -- ^      A sBx   R[A] := sBx
     | OP_LOADF  -- ^      A sBx   R[A] := (lua_Number)sBx
     | OP_LOADK  -- ^      A Bx    R[A] := K[Bx]
@@ -150,7 +152,10 @@ data Opcode =
     | OP_VARARG  -- ^     A C     R[A], R[A+1], ..., R[A+C-2] = vararg
     | OP_VARARGPREP  -- ^ A       (adjust vararg parameters)
     | OP_EXTRAARG  -- ^   Ax      extra (larger) argument for previous opcode
-    deriving ( Show, Eq, Enum, Bounded )
+    deriving ( Show
+             , Eq
+             , Enum
+             , Bounded )
 
 numOpcodes :: Int
 numOpcodes = fromEnum (maxBound :: Opcode) + 1

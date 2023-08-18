@@ -14,22 +14,26 @@ empty :: TypeEnv
 empty = TypeEnv Map.empty
 
 extend :: TypeEnv -> (Name, Scheme) -> TypeEnv
-extend (TypeEnv env) (x, s) = TypeEnv $ Map.insert x s env
+extend (TypeEnv env) (x, s) = TypeEnv
+    $ Map.insert x s env
 
 lookup :: Name -> TypeEnv -> Maybe Scheme
 lookup x (TypeEnv env) = Map.lookup x env
 
 merge :: TypeEnv -> TypeEnv -> TypeEnv
-merge (TypeEnv env1) (TypeEnv env2) = TypeEnv $ Map.union env1 env2
+merge (TypeEnv env1) (TypeEnv env2) = TypeEnv
+    $ Map.union env1 env2
 
 remove :: Name -> TypeEnv -> TypeEnv
-remove x (TypeEnv env) = TypeEnv $ Map.delete x env
+remove x (TypeEnv env) = TypeEnv
+    $ Map.delete x env
 
 mergeMany :: [TypeEnv] -> TypeEnv
 mergeMany = Prelude.foldr merge Env.empty
 
 singleton :: Name -> Scheme -> TypeEnv
-singleton x s = TypeEnv $ Map.singleton x s
+singleton x s = TypeEnv
+    $ Map.singleton x s
 
 keys :: TypeEnv -> [Name]
 keys (TypeEnv env) = Map.keys env
@@ -41,9 +45,9 @@ toList :: TypeEnv -> [(Name, Scheme)]
 toList = Map.toList . runTypeEnv
 
 instance Semigroup TypeEnv where
-    (<>) = merge
+  (<>) = merge
 
 instance Monoid TypeEnv where
-    mempty  = Env.empty
+  mempty  = Env.empty
 
-    mappend = (<>)
+  mappend = (<>)
