@@ -1,0 +1,132 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.2.
+--
+-- see: https://github.com/sol/hpack
+
+name:           DSL
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/pe200012/DSL#readme>
+homepage:       https://github.com/pe200012/DSL#readme
+bug-reports:    https://github.com/pe200012/DSL/issues
+author:         chenpeien
+maintainer:     chenpeien@idea.edu.cn
+copyright:      2023 chenpeien
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/pe200012/DSL
+
+library
+  exposed-modules:
+      Env
+      Infer
+      Stmt
+      Syntax
+      Transpile
+      Types
+  other-modules:
+      Paths_DSL
+  hs-source-dirs:
+      src
+  default-extensions:
+      OverloadedStrings
+      TypeApplications
+      TypeOperators
+      DataKinds
+      FlexibleContexts
+      FlexibleInstances
+      LambdaCase
+      MultiParamTypeClasses
+      ScopedTypeVariables
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fplugin=Polysemy.Plugin -O2
+  build-depends:
+      array
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , lens
+    , mtl
+    , polysemy
+    , polysemy-plugin
+    , recursion-schemes
+    , text
+    , transformers
+    , unordered-containers
+    , vector
+  default-language: Haskell2010
+
+executable DSL-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_DSL
+  hs-source-dirs:
+      app
+  default-extensions:
+      OverloadedStrings
+      TypeApplications
+      TypeOperators
+      DataKinds
+      FlexibleContexts
+      FlexibleInstances
+      LambdaCase
+      MultiParamTypeClasses
+      ScopedTypeVariables
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fplugin=Polysemy.Plugin -O2 -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      DSL
+    , array
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , lens
+    , mtl
+    , polysemy
+    , polysemy-plugin
+    , recursion-schemes
+    , text
+    , transformers
+    , unordered-containers
+    , vector
+  default-language: Haskell2010
+
+test-suite DSL-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_DSL
+  hs-source-dirs:
+      test
+  default-extensions:
+      OverloadedStrings
+      TypeApplications
+      TypeOperators
+      DataKinds
+      FlexibleContexts
+      FlexibleInstances
+      LambdaCase
+      MultiParamTypeClasses
+      ScopedTypeVariables
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fplugin=Polysemy.Plugin -O2 -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      DSL
+    , array
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , lens
+    , mtl
+    , polysemy
+    , polysemy-plugin
+    , recursion-schemes
+    , text
+    , transformers
+    , unordered-containers
+    , vector
+  default-language: Haskell2010

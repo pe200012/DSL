@@ -1,0 +1,84 @@
+name: DSL
+version: 0.1.0.0
+github: "pe200012/DSL"
+license: BSD3
+author: "chenpeien"
+maintainer: "chenpeien@idea.edu.cn"
+copyright: "2023 chenpeien"
+
+extra-source-files:
+  - README.md
+  - CHANGELOG.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description: Please see the README on GitHub at <https://github.com/pe200012/DSL#readme>
+
+dependencies:
+  - base >= 4.7 && < 5
+  - mtl
+  - transformers
+  - containers
+  - unordered-containers
+  - recursion-schemes
+  - lens
+  - vector
+  - array
+  - bytestring
+  - polysemy
+  - polysemy-plugin
+  - text
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Widentities
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wmissing-export-lists
+  - -Wmissing-home-modules
+  - -Wpartial-fields
+  - -Wredundant-constraints
+  - -fplugin=Polysemy.Plugin
+  - -O2
+
+default-extensions:
+  - OverloadedStrings
+  - TypeApplications
+  - TypeOperators
+  - DataKinds
+  - FlexibleContexts
+  - FlexibleInstances
+  - LambdaCase
+  - MultiParamTypeClasses
+  - ScopedTypeVariables
+
+library:
+  source-dirs: src
+
+executables:
+  DSL-exe:
+    main: Main.hs
+    source-dirs: app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - DSL
+
+tests:
+  DSL-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - DSL
