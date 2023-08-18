@@ -1,9 +1,13 @@
+{-# LANGUAGE BinaryLiterals #-}
+
 module Bytecode where
 
 import           Control.Lens ( Lens'
                               , lens )
 
-import           Data.Bits    ( Bits(..) )
+import           Data.Bits    ( (.<<.)
+                              , (.>>.)
+                              , Bits(..) )
 import           Data.Word    ( Word32 )
 
 {-
@@ -22,50 +26,62 @@ isJ                           sJ (signed)(25)            |   Op(7)     |
   the written unsigned value minus K, where K is half the maximum for the
   corresponding unsigned argument.
 -}
-data Instruction = Instruction { opcode :: Opcode, payload :: Word32 }
+newtype Instruction = Instruction { payload :: Word32 }
     deriving ( Show
              , Eq )
 
 -- | clear out certain bits in a word
 {-# INLINE mask #-}
 mask :: Int -> Int -> Word32 -> Word32
-mask start len w = w .&. complement (((1 `shiftL` len) - 1) `shiftL` start)
+mask start len w = w .&. complement (((1 .<<. len) - 1) .<<. start)
 
 {-# INLINE getA #-}
 getA :: Word32 -> Word32
-getA w = (w `shiftR` 7) .&. 0xFF
+getA w = (w .>>. 7) .&. 0xFF
 
 {-# INLINE getB #-}
 getB :: Word32 -> Word32
-getB w = (w `shiftR` 16) .&. 0xFF
+getB w = (w .>>. 16) .&. 0xFF
 
 {-# INLINE getk #-}
 getk :: Word32 -> Word32
-getk w = (w `shiftR` 15) .&. 0x1
+getk w = (w .>>. 15) .&. 0x1
 
 {-# INLINE getC #-}
 getC :: Word32 -> Word32
-getC w = (w `shiftR` 24) .&. 0xFF
+getC w = (w .>>. 24) .&. 0xFF
+
+{-# INLINE getsC #-}
+getsC :: Word32 -> Word32
+getsC w = (mask 0 24 w .>>. 24) - (2 ^ (7 :: Int))
 
 {-# INLINE getBx #-}
 getBx :: Word32 -> Word32
-getBx w = (w `shiftR` 15) .&. 0x1FFFF
+getBx w = (w .>>. 15) .&. 0x1FF
 
 {-# INLINE getsBx #-}
 getsBx :: Word32 -> Word32
-getsBx w = getBx w - (maxBound `shiftR` 1)
+getsBx w = (mask 0 15 w .>>. 15) - (2 ^ (16 :: Int))
 
 {-# INLINE getAx #-}
 getAx :: Word32 -> Word32
-getAx w = w `shiftR` 7
+getAx w = w .>>. 7
 
 {-# INLINE getsJ #-}
 getsJ :: Word32 -> Word32
-getsJ w = getAx w - (maxBound `shiftR` 1)
+getsJ w = getAx w - (2 ^ (24 :: Int))
+
+{-# INLINE getOpcode #-}
+getOpcode :: Word32 -> Maybe Opcode
+getOpcode w =
+    if w' < fromEnum (minBound :: Opcode) || w' > fromEnum (maxBound :: Opcode)
+    then Nothing
+    else Just (toEnum w')
+  where
+    w' = fromIntegral (w .&. 0x7F)
 
 _A :: Lens' Instruction Word32
-_A = lens (getA . payload)
-          (\i a -> i { payload = mask 7 8 a .|. (a `shiftL` 7) })
+_A = lens (getA . payload) (\i a -> i { payload = mask 7 8 a .|. (a .<<. 7) })
 
 -- | Lua VM opcodes
 data Opcode
@@ -157,5 +173,9 @@ data Opcode
              , Enum
              , Bounded )
 
+{-- |
+>>> numOpcodes
+83
+-}
 numOpcodes :: Int
 numOpcodes = fromEnum (maxBound :: Opcode) + 1
