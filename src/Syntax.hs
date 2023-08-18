@@ -18,7 +18,15 @@ import           Data.Text
 type Name = Text
 
 data Lit = Li Int | Lb Bool | Ls String | Lc Char | Lf Double | Lu
-    deriving ( Show, Eq, Ord )
+    deriving ( Eq, Ord )
+
+instance Show Lit where
+    show (Li i) = show i
+    show (Lb b) = show b
+    show (Ls s) = show s
+    show (Lc c) = show c
+    show (Lf f) = show f
+    show Lu = "()"
 
 typeName :: Lit -> Text
 typeName (Li _) = "int"
@@ -35,6 +43,7 @@ data Expr = Var Name
           | Let Name Expr Expr
           | Lit Lit
           | If Expr Expr Expr
+          | BinOp Name Expr Expr
     deriving ( Show, Eq )
 
 makeBaseFunctor ''Expr
@@ -58,26 +67,34 @@ fix = Fix
 let_ :: Name -> Expr -> Expr -> Expr
 let_ = Let
 
-class Lifting a where
-    (↑) :: a -> Expr
-
-instance Lifting Int where
-    (↑) = Lit . Li
-
-instance Lifting Bool where
-    (↑) = Lit . Lb
-
-instance Lifting String where
-    (↑) = Lit . Ls
-
-instance Lifting Char where
-    (↑) = Lit . Lc
-
-instance Lifting Double where
-    (↑) = Lit . Lf
-
-instance Lifting () where
-    (↑) = Lit . const Lu
-
 if_ :: Expr -> Expr -> Expr -> Expr
 if_ = If
+
+transpileExpr :: Expr -> Text
+transpileExpr = cata $ \case
+    VarF name          -> name
+    AppF f x           -> f <> "(" <> x <> ")"
+    LamF name body     -> "fun " <> name <> " -> " <> body
+    FixF body          -> body
+    LetF name val body -> "let " <> name <> " = " <> val <> " in " <> body
+    LitF lit           -> pack $ show lit
+    IfF cond t f       -> "if " <> cond <> " then " <> t <> " else " <> f
+    BinOpF op l r      -> l <> " " <> op <> " " <> r
+
+-- >>> transpileExpr example
+-- "let x = 1 in let y = 2 in x"
+example :: Expr
+example = let_ "x" (Lit $ Li 1) $ let_ "y" (Lit $ Li 2) $ var "x"
+
+-- >>> transpileExpr fib
+-- "fun f -> fun n -> if n = 0 then 1 else if n = 1 then 1 else f(n - 1) + f(n - 2)"
+fib :: Expr
+fib = "f"
+    .^ ("n" .^ if_ (BinOp "=" (var "n") (Lit $ Li 0))
+                   (Lit $ Li 1)
+                   (if_ (BinOp "=" (var "n") (Lit $ Li 1))
+                        (Lit $ Li 1)
+                        (BinOp "+"
+                               (var "f" @@ BinOp "-" (var "n") (Lit $ Li 1))
+                               (var "f" @@ BinOp "-" (var "n") (Lit $ Li 2)))))
+
