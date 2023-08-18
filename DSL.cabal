@@ -50,6 +50,7 @@ library
   build-depends:
       array
     , base >=4.7 && <5
+    , binary
     , bytestring
     , containers
     , hedgehog
@@ -86,6 +87,7 @@ executable DSL-exe
       DSL
     , array
     , base >=4.7 && <5
+    , binary
     , bytestring
     , containers
     , hedgehog
@@ -126,6 +128,7 @@ test-suite DSL-test
       DSL
     , array
     , base >=4.7 && <5
+    , binary
     , bytestring
     , containers
     , hedgehog

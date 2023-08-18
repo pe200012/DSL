@@ -30,6 +30,7 @@ dependencies:
   - vector
   - array
   - bytestring
+  - binary
   - polysemy
   - polysemy-plugin
   - text

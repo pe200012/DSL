@@ -1,25 +1,119 @@
 {-# LANGUAGE BinaryLiterals #-}
 
 {-# LANGUAGE DerivingStrategies #-}
+
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Bytecode where
 
-import           Control.Lens ( Lens'
-                              , lens
-                              , makeLenses
-                              , over
-                              , to
-                              , view )
+import           Control.Lens
+                 ( Lens'
+                 , lens
+                 , makeFields
+                 , makeLenses
+                 , over
+                 , to
+                 , view )
 
-import           Data.Bits    ( (.<<.)
-                              , (.>>.)
-                              , Bits(..) )
-import           Data.Word    ( Word32 )
+import           Data.Binary          ( Binary(..)
+                                      , encode )
+import           Data.Bits            ( (.<<.)
+                                      , (.>>.)
+                                      , Bits(..) )
+import           Data.ByteString.Lazy ( ByteString )
+import           Data.Word            ( Word32
+                                      , Word64
+                                      , Word8 )
 
-import           Text.Printf  ( printf )
+import           Text.Printf          ( printf )
+
+-- | Lua 5.4 bytecode header
+data Header = Header { _signature       :: Word32  -- ^ 0x1B4C7561, or "\x1BLua"
+                     , _version         :: Word8   -- ^ 0x54
+                     , _format          :: Word8   -- ^ 0, official format
+                     , _luacData        :: [Word8] -- ^ "\x19\x93\r\n\x1a\n"
+                     , _instructionSize :: Word8   -- ^ 4
+                     , _luaIntegerSize  :: Word8   -- ^ 8
+                     , _luaNumberSize   :: Word8   -- ^ 8
+                     , _luacInt         :: Word64  -- ^ 0x5678
+                     , _luacNum         :: Double  -- ^ 370.5
+                     }
+    deriving ( Show
+             , Eq )
+
+defaultHeader :: Header
+defaultHeader =
+    Header { _signature       = 0x1B4C7561
+           , _version         = 0x54
+           , _format          = 0
+           , _luacData        = [ 0x19, 0x93, 0x0D, 0x0A, 0x1A, 0x0A ]
+           , _instructionSize = 4
+           , _luaIntegerSize  = 8
+           , _luaNumberSize   = 8
+           , _luacInt         = 0x5678
+           , _luacNum         = 370.5
+           }
+
+headerSize :: Int
+headerSize = 56
+
+instance Binary Header where
+  get   = do
+    signature <- get
+    version <- get
+    format <- get
+    luacData <- get
+    instructionSize <- get
+    luaIntegerSize <- get
+    luaNumberSize <- get
+    luacInt <- get
+    luacNum <- get
+    pure Header { _signature       = signature
+                , _version         = version
+                , _format          = format
+                , _luacData        = luacData
+                , _instructionSize = instructionSize
+                , _luaIntegerSize  = luaIntegerSize
+                , _luaNumberSize   = luaNumberSize
+                , _luacInt         = luacInt
+                , _luacNum         = luacNum
+                }
+
+  put h = do
+    put (_signature h)
+    put (_version h)
+    put (_format h)
+    put (_luacData h)
+    put (_instructionSize h)
+    put (_luaIntegerSize h)
+    put (_luaNumberSize h)
+    put (_luacInt h)
+    put (_luacNum h)
+
+data Function =
+    Function { _srcFile :: ByteString
+             , _lineDefined :: Word32
+             , _lastLineDefined :: Word32
+             , _numParams :: Word8
+             , _isVararg :: Word8
+             , _maxStackSize :: Word8
+             , _code :: [Instruction]
+             , _constants :: [Constant]
+             , _upvalues :: [UpValue]
+             , _protos :: [Function]
+             , _debug :: DebugInfo
+             }
+
+data DebugInfo = DebugInfo { _debugLineInfo :: [DebugLineInfo]
+                           , _debugLocals   :: [Local]
+                           , _debugUpvalues :: [UpValue]
+                           }
+
+data DebugLineInfo =
+    DebugLineInfo { _debugLineInfoPc :: Word32, _debugLineInfoLine :: Word32 }
 
 {-
 Ref: https://www.lua.org/source/5.4/lopcodes.h.html
@@ -39,12 +133,11 @@ isJ                           sJ (signed)(25)            |   Op(7)     |
 -}
 newtype Instruction = Instruction { _payload :: Word32 }
     deriving newtype ( Eq
-                     , Num )
+                     , Num
+                     , Binary )
 
 instance Show Instruction where
   show = printf "%#.8x" . _payload
-
-makeLenses ''Instruction
 
 -- | clear out certain bits in a word
 {-# INLINE mask #-}
@@ -100,53 +193,6 @@ getOpcode w =
     else Just (toEnum w')
   where
     w' = fromIntegral (w .&. 0x7F)
-
-{-
-
->>> total :: Instruction = 5
-
->>> view _opcode total
-Just OP_LOADFALSE
-
->>> set _opcode (Just OP_EXTRAARG) total
-0x00000052
-
--}
-_opcode :: Lens' Instruction (Maybe Opcode)
-_opcode =
-    lens (view (payload . to getOpcode))
-         (\i opcode -> case opcode of
-            Nothing      -> over payload (.|. 0x7F) i
-            Just opcode' ->
-                over payload (blit 0 7 (fromIntegral (fromEnum opcode'))) i)
-
-_A :: Lens' Instruction Word32
-_A = lens (view (payload . to getA)) (\i a -> over payload (blit 7 8 a) i)
-
-_B :: Lens' Instruction Word32
-_B = lens (view (payload . to getB)) (\i b -> over payload (blit 16 8 b) i)
-
-_k :: Lens' Instruction Word32
-_k = lens (view (payload . to getk)) (\i k -> over payload (blit 15 1 k) i)
-
-_C :: Lens' Instruction Word32
-_C = lens (view (payload . to getC)) (\i c -> over payload (blit 24 8 c) i)
-
-_sC :: Lens' Instruction Word32
-_sC = lens (view (payload . to getsC)) (\i sC -> over payload (blit 24 8 sC) i)
-
-_Bx :: Lens' Instruction Word32
-_Bx = lens (view (payload . to getBx)) (\i bx -> over payload (blit 15 9 bx) i)
-
-_sBx :: Lens' Instruction Word32
-_sBx = lens (view (payload . to getsBx))
-            (\i sBx -> over payload (blit 15 9 sBx) i)
-
-_Ax :: Lens' Instruction Word32
-_Ax = lens (view (payload . to getAx)) (\i ax -> over payload (blit 7 25 ax) i)
-
-_sJ :: Lens' Instruction Word32
-_sJ = lens (view (payload . to getsJ)) (\i sJ -> over payload (blit 7 25 sJ) i)
 
 -- | Lua VM opcodes
 data Opcode
@@ -244,3 +290,84 @@ data Opcode
 -}
 numOpcodes :: Int
 numOpcodes = fromEnum (maxBound :: Opcode) + 1
+
+data Constant
+    = LUA_VNIL
+    | LUA_VFALSE
+    | LUA_VTRUE
+    | LUA_VNUM Double
+    | LUA_VINT Word64
+    | LUA_VSHRSTR ByteString
+    | LUA_VLNGSTR ByteString
+    deriving ( Show
+             , Eq )
+
+data UpValue = UpValue { _upvalueName    :: ByteString
+                       , _upvalueInstack :: Word8
+                       , _upvalueIdx     :: Word8
+                       , _upvalueKind    :: Word8
+                       }
+
+data Local =
+    Local { _localName :: ByteString, _localPc :: Word32, _localEnd :: Word32 }
+
+makeLenses ''Header
+
+makeLenses ''Function
+
+makeLenses ''DebugInfo
+
+makeLenses ''DebugLineInfo
+
+makeLenses ''Instruction
+
+makeFields ''UpValue
+
+makeFields ''Local
+
+{-
+
+>>> total :: Instruction = 5
+
+>>> view _opcode total
+Just OP_LOADFALSE
+
+>>> set _opcode (Just OP_EXTRAARG) total
+0x00000052
+
+-}
+_opcode :: Lens' Instruction (Maybe Opcode)
+_opcode =
+    lens (view (payload . to getOpcode))
+         (\i opcode -> case opcode of
+            Nothing      -> over payload (.|. 0x7F) i
+            Just opcode' ->
+                over payload (blit 0 7 (fromIntegral (fromEnum opcode'))) i)
+
+_A :: Lens' Instruction Word32
+_A = lens (view (payload . to getA)) (\i a -> over payload (blit 7 8 a) i)
+
+_B :: Lens' Instruction Word32
+_B = lens (view (payload . to getB)) (\i b -> over payload (blit 16 8 b) i)
+
+_k :: Lens' Instruction Word32
+_k = lens (view (payload . to getk)) (\i k -> over payload (blit 15 1 k) i)
+
+_C :: Lens' Instruction Word32
+_C = lens (view (payload . to getC)) (\i c -> over payload (blit 24 8 c) i)
+
+_sC :: Lens' Instruction Word32
+_sC = lens (view (payload . to getsC)) (\i sC -> over payload (blit 24 8 sC) i)
+
+_Bx :: Lens' Instruction Word32
+_Bx = lens (view (payload . to getBx)) (\i bx -> over payload (blit 15 9 bx) i)
+
+_sBx :: Lens' Instruction Word32
+_sBx = lens (view (payload . to getsBx))
+            (\i sBx -> over payload (blit 15 9 sBx) i)
+
+_Ax :: Lens' Instruction Word32
+_Ax = lens (view (payload . to getAx)) (\i ax -> over payload (blit 7 25 ax) i)
+
+_sJ :: Lens' Instruction Word32
+_sJ = lens (view (payload . to getsJ)) (\i sJ -> over payload (blit 7 25 sJ) i)
