@@ -81,12 +81,12 @@ spec = do
                   $ property
                   $ do
                     (a, b, c, ax, total, op) <- prepareInstruction
-                    getBx total === b
+                    getBx total === b .|. (c .<<. 9)
               it "getsBx"
                   $ property
                   $ do
                     (a, b, c, ax, total, op) <- prepareInstruction
-                    getsBx total === (b .|. (c .<<. 9)) - (2 ^ (16 :: Int))
+                    getsBx total === getBx total - (2 ^ (16 :: Int))
               it "getAx"
                   $ property
                   $ do
