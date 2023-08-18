@@ -5,14 +5,15 @@ module Test.BytecodeSpec where
 
 import           Bytecode
 
+import           Control.Lens      ( (^.)
+                                   , (^?) )
+
 import           Data.Bits
 import           Data.Word         ( Word32 )
 
 import           Hedgehog
 import           Hedgehog.Gen
 import           Hedgehog.Range
-
-import           System.Random     ( randomRIO )
 
 import           Test.Syd
 import           Test.Syd.Hedgehog ()
@@ -54,9 +55,8 @@ spec = do
                   $ property
                   $ do
                     (a, b, c, ax, total, op) <- prepareInstruction
-                    case getOpcode total of
-                      Nothing  -> fail "getOpcode returned Nothing"
-                      Just op' -> op' === op
+                    getOpcode total === Just op
+                    Instruction total ^. _opcode === Just op
               it "getA"
                   $ property
                   $ do
@@ -87,6 +87,16 @@ spec = do
                   $ do
                     (a, b, c, ax, total, op) <- prepareInstruction
                     getsBx total === (b .|. (c .<<. 9)) - (2 ^ (16 :: Int))
+              it "getAx"
+                  $ property
+                  $ do
+                    (a, b, c, ax, total, op) <- prepareInstruction
+                    getAx total === ax
+              it "getsJ"
+                  $ property
+                  $ do
+                    (a, b, c, ax, total, op) <- prepareInstruction
+                    getsJ total === ax - (2 ^ (24 :: Int))
   where
     prepareInstruction = do
       a <- forAll
