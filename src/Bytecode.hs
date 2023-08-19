@@ -19,30 +19,29 @@ import           Control.Lens
                  , over
                  , to
                  , view )
-import           Control.Monad            ( replicateM )
-import           Control.Monad.Loops      ( whileM_ )
-import           Control.Monad.ST
+import           Control.Monad        ( replicateM )
+import           Control.Monad.Loops  ( whileM_ )
+import           Control.Monad.ST     ( runST )
 
-import           Data.Binary              ( Binary(..) )
-import           Data.Binary.Get          ( getLazyByteString
-                                          , getWord64le
-                                          , getWord8 )
-import           Data.Binary.Put          ( putLazyByteString
-                                          , putWord64le
-                                          , putWord8 )
-import           Data.Bits                ( (.<<.)
-                                          , (.>>.)
-                                          , Bits(..) )
-import           Data.ByteString.Lazy     ( ByteString )
-import qualified Data.ByteString.Lazy     as BS
-import           Data.STRef
-import           Data.Word                ( Word32
-                                          , Word64
-                                          , Word8 )
+import           Data.Binary          ( Binary(..) )
+import           Data.Binary.Get      ( getLazyByteString
+                                      , getWord64le
+                                      , getWord8 )
+import           Data.Binary.Put      ( putLazyByteString
+                                      , putWord64le
+                                      , putWord8 )
+import           Data.Bits            ( (.>>.)
+                                      , Bits(..) )
+import           Data.ByteString.Lazy ( ByteString )
+import qualified Data.ByteString.Lazy as BS
+import           Data.STRef           ( modifySTRef
+                                      , newSTRef
+                                      , readSTRef )
+import           Data.Word            ( Word32
+                                      , Word64
+                                      , Word8 )
 
-import           Development.Placeholders ( notImplemented )
-
-import           Text.Printf              ( printf )
+import           Text.Printf          ( printf )
 
 import           Utils
                  ( decodeIEEEDouble
