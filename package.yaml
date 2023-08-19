@@ -92,3 +92,5 @@ tests:
       - sydtest-discover
       - sydtest-hedgehog
       - random
+      - process
+      - temporary

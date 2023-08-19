@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Bytecode
+      Closure
       Env
       Infer
       Stmt
@@ -144,11 +145,13 @@ test-suite DSL-test
     , placeholders
     , polysemy
     , polysemy-plugin
+    , process
     , random
     , recursion-schemes
     , sydtest
     , sydtest-discover
     , sydtest-hedgehog
+    , temporary
     , text
     , transformers
     , unordered-containers

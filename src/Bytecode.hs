@@ -159,6 +159,10 @@ emptyFunction =
              , _debug = DebugInfo "" [] [] []
              }
 
+emptyMainFunction :: Function
+emptyMainFunction =
+    emptyFunction { _numParams = 0, _isVararg = 1, _maxStackSize = 2 }
+
 instance Binary Function where
   get   = do
     srcFile <- getLuaString

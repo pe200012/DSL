@@ -5,20 +5,25 @@ module Test.BytecodeSpec where
 
 import           Bytecode
 
-import           Control.Lens      ( (^.)
-                                   , (^?)
-                                   , view )
+import           Control.Lens         ( (^.)
+                                      , view )
 
+import           Data.Binary          ( encode )
 import           Data.Bits
-import           Data.Word         ( Word32
-                                   , Word64 )
+import qualified Data.ByteString.Lazy as BS
+import           Data.Word            ( Word32
+                                      , Word64 )
 
 import           Hedgehog
 import           Hedgehog.Gen
 import           Hedgehog.Range
 
+import           System.Exit          ( ExitCode(ExitSuccess) )
+import           System.IO.Temp       ( withSystemTempFile )
+import           System.Process       ( readProcessWithExitCode )
+
 import           Test.Syd
-import           Test.Syd.Hedgehog ()
+import           Test.Syd.Hedgehog    ()
 
 import           Utils
 
@@ -63,7 +68,7 @@ spec = do
         getsBx total === getBx total - (2 ^ (16 :: Int))
         getAx total === ax
         getsJ total === ax - (2 ^ (24 :: Int))
-      it "get*" $ property $ do
+      it "lens*" $ property $ do
         (a, b, c, ax, total', op) <- prepareInstruction
         let total = Instruction total'
         view _A total === a
@@ -74,6 +79,15 @@ spec = do
         view _sBx total === getBx total' - (2 ^ (16 :: Int))
         view _Ax total === ax
         view _sJ total === ax - (2 ^ (24 :: Int))
+  describe "Bytecode emitting" $ do
+    it "dummy chunk" $ do
+      let chunk =
+              Chunk { _header = defaultHeader, _function = emptyMainFunction }
+      withSystemTempFile "test.dummy" $ \path handle -> do
+        BS.hPut handle (encode chunk)
+        -- invoke `luac -l test.dummy` to see the result
+        (code, out, err) <- readProcessWithExitCode "luac" [ "-l", path ] ""
+        code `shouldBe` ExitSuccess
   where
     prepareInstruction = do
       a <- forAll $ integral (linear 0 (2 ^ 8 - 1))
