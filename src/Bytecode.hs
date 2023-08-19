@@ -19,18 +19,22 @@ import           Control.Lens
                  , over
                  , to
                  , view )
+import           Control.Monad            ( replicateM )
 import           Control.Monad.Loops      ( whileM_ )
 import           Control.Monad.ST
 
 import           Data.Binary              ( Binary(..) )
 import           Data.Binary.Get          ( getLazyByteString
-                                          , getWord64le )
+                                          , getWord64le
+                                          , getWord8 )
 import           Data.Binary.Put          ( putLazyByteString
-                                          , putWord64le )
+                                          , putWord64le
+                                          , putWord8 )
 import           Data.Bits                ( (.<<.)
                                           , (.>>.)
                                           , Bits(..) )
 import           Data.ByteString.Lazy     ( ByteString )
+import qualified Data.ByteString.Lazy     as BS
 import           Data.STRef
 import           Data.Word                ( Word32
                                           , Word64
@@ -40,25 +44,28 @@ import           Development.Placeholders ( notImplemented )
 
 import           Text.Printf              ( printf )
 
-import           Utils                    ( decodeIEEEDouble
-                                          , encodeIEEEDouble )
+import           Utils
+                 ( decodeIEEEDouble
+                 , encodeIEEEDouble
+                 , getLuaString
+                 , getVariableBytes
+                 , putLuaString
+                 , putVariableBytes )
 
 data Chunk = Chunk { _header :: Header, _function :: Function }
     deriving ( Show )
 
 instance Binary Chunk where
   get   = do
-    header <- get @Header
+    header <- get
     numUpValues <- get @Word8
-    -- function <- get
-    -- pure Chunk { _header = header, _function = function }
-    $notImplemented
+    function <- get
+    pure Chunk { _header = header, _function = function }
 
   put c = do
     put (_header c)
     put @Word8 (fromIntegral (length (_upvalues (_function c))))
-    -- put (_function c)
-    $notImplemented
+    put (_function c)
 
 -- | Lua 5.4 bytecode header
 data Header = Header { _signature       :: Word32  -- ^ 0x1B4C7561, or "\x1BLua"
@@ -125,8 +132,8 @@ instance Binary Header where
 
 data Function =
     Function { _srcFile :: ByteString
-             , _lineDefined :: Word32
-             , _lastLineDefined :: Word32
+             , _lineDefined :: Word64
+             , _lastLineDefined :: Word64
              , _numParams :: Word8
              , _isVararg :: Word8
              , _maxStackSize :: Word8
@@ -150,24 +157,102 @@ emptyFunction =
              , _constants = []
              , _upvalues = []
              , _protos = []
-             , _debug = DebugInfo [] [] []
+             , _debug = DebugInfo "" [] [] []
              }
 
 instance Binary Function where
-  get = do
-    $notImplemented
+  get   = do
+    srcFile <- getLuaString
+    lineDefined <- getVariableBytes
+    lastLineDefined <- getVariableBytes
+    numParams <- get
+    isVararg <- get
+    maxStackSize <- get
+    codeLen <- getVariableBytes
+    code <- replicateM (fromIntegral codeLen) get
+    constantLen <- getVariableBytes
+    constants <- replicateM (fromIntegral constantLen) get
+    upvalueLen <- getVariableBytes
+    upvalues <- replicateM (fromIntegral upvalueLen) get
+    protoLen <- getVariableBytes
+    protos <- replicateM (fromIntegral protoLen) get
+    debug <- get
+    pure Function { _srcFile = srcFile
+                  , _lineDefined = lineDefined
+                  , _lastLineDefined = lastLineDefined
+                  , _numParams = numParams
+                  , _isVararg = isVararg
+                  , _maxStackSize = maxStackSize
+                  , _code = code
+                  , _constants = constants
+                  , _upvalues = upvalues
+                  , _protos = protos
+                  , _debug = debug
+                  }
 
-  put = $notImplemented
+  put f = do
+    putLuaString (_srcFile f)
+    putVariableBytes (_lineDefined f)
+    putVariableBytes (_lastLineDefined f)
+    put (_numParams f)
+    put (_isVararg f)
+    put (_maxStackSize f)
+    putVariableBytes (length (_code f))
+    mapM_ put (_code f)
+    putVariableBytes (length (_constants f))
+    mapM_ put (_constants f)
+    putVariableBytes (length (_upvalues f))
+    mapM_ put (_upvalues f)
+    putVariableBytes (length (_protos f))
+    mapM_ put (_protos f)
+    put (_debug f)
 
-data DebugInfo = DebugInfo { _debugLineInfo :: [DebugLineInfo]
-                           , _debugLocals   :: [Local]
-                           , _debugUpvalues :: [UpValue]
+data DebugInfo = DebugInfo { _debugLineInfo    :: ByteString
+                           , _debugAbsLineInfo :: [DebugLineInfo]
+                           , _debugLocals      :: [Local]
+                           , _debugUpvalues    :: [ByteString]
                            }
     deriving ( Show )
 
+instance Binary DebugInfo where
+  get   = do
+    lineInfoLen <- getVariableBytes
+    lineInfo <- getLazyByteString (fromIntegral lineInfoLen)
+    absLineInfoLen <- getVariableBytes
+    absLineInfo <- replicateM (fromIntegral absLineInfoLen) get
+    localLen <- getVariableBytes
+    locals <- replicateM (fromIntegral localLen) get
+    upvalueLen <- getVariableBytes
+    upvalues <- replicateM (fromIntegral upvalueLen) getLuaString
+    pure DebugInfo { _debugLineInfo    = lineInfo
+                   , _debugAbsLineInfo = absLineInfo
+                   , _debugLocals      = locals
+                   , _debugUpvalues    = upvalues
+                   }
+
+  put d = do
+    putVariableBytes (BS.length (_debugLineInfo d))
+    putLazyByteString (_debugLineInfo d)
+    putVariableBytes (length (_debugAbsLineInfo d))
+    mapM_ put (_debugAbsLineInfo d)
+    putVariableBytes (length (_debugLocals d))
+    mapM_ put (_debugLocals d)
+    putVariableBytes (length (_debugUpvalues d))
+    mapM_ putLuaString (_debugUpvalues d)
+
 data DebugLineInfo =
-    DebugLineInfo { _debugLineInfoPc :: Word32, _debugLineInfoLine :: Word32 }
+    DebugLineInfo { _debugLineInfoPc :: Word64, _debugLineInfoLine :: Word64 }
     deriving ( Show )
+
+instance Binary DebugLineInfo where
+  get   = do
+    pc <- getVariableBytes
+    line <- getVariableBytes
+    pure DebugLineInfo { _debugLineInfoPc = pc, _debugLineInfoLine = line }
+
+  put h = do
+    putVariableBytes (_debugLineInfoPc h)
+    putVariableBytes (_debugLineInfoLine h)
 
 {-
 Ref: https://www.lua.org/source/5.4/lopcodes.h.html
@@ -369,6 +454,36 @@ data Constant
     deriving ( Show
              , Eq )
 
+instance Binary Constant where
+  get   = do
+    tag <- getWord8
+    case tag of
+      0x00 -> pure LUA_VNIL
+      0x01 -> pure LUA_VFALSE
+      0x11 -> pure LUA_VTRUE
+      0x03 -> LUA_VINT <$> getWord64le
+      0x13 -> LUA_VNUM . decodeIEEEDouble True <$> getLazyByteString 8
+      0x04 -> LUA_VSHRSTR <$> getLuaString
+      0x14 -> LUA_VLNGSTR <$> getLuaString
+      _    -> error "invalid constant tag"
+
+  put c = case c of
+    LUA_VNIL      -> putWord8 0x00
+    LUA_VFALSE    -> putWord8 0x01
+    LUA_VTRUE     -> putWord8 0x11
+    LUA_VINT i    -> do
+      putWord8 0x03
+      putWord64le i
+    LUA_VNUM n    -> do
+      putWord8 0x13
+      putLazyByteString (encodeIEEEDouble True n)
+    LUA_VSHRSTR s -> do
+      putWord8 0x04
+      putLuaString s
+    LUA_VLNGSTR s -> do
+      putWord8 0x14
+      putLuaString s
+
 data UpValue = UpValue { _upvalueName    :: ByteString
                        , _upvalueInstack :: Word8
                        , _upvalueIdx     :: Word8
@@ -376,9 +491,37 @@ data UpValue = UpValue { _upvalueName    :: ByteString
                        }
     deriving ( Show )
 
+instance Binary UpValue where
+  get   = do
+    instack <- get
+    idx <- get
+    kind <- get
+    pure UpValue { _upvalueName    = ""
+                 , _upvalueInstack = instack
+                 , _upvalueIdx     = idx
+                 , _upvalueKind    = kind
+                 }
+
+  put u = do
+    put (_upvalueInstack u)
+    put (_upvalueIdx u)
+    put (_upvalueKind u)
+
 data Local =
-    Local { _localName :: ByteString, _localPc :: Word32, _localEnd :: Word32 }
+    Local { _localName :: ByteString, _localPc :: Word64, _localEnd :: Word64 }
     deriving ( Show )
+
+instance Binary Local where
+  get   = do
+    name <- getLuaString
+    pc <- getVariableBytes
+    end <- getVariableBytes
+    pure Local { _localName = name, _localPc = pc, _localEnd = end }
+
+  put l = do
+    putLuaString (_localName l)
+    putVariableBytes (_localPc l)
+    putVariableBytes (_localEnd l)
 
 makeLenses ''Chunk
 

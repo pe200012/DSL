@@ -7,13 +7,17 @@ module Utils
     , decodeVariableBytes
     , putVariableBytes
     , getVariableBytes
+    , putLuaString
+    , getLuaString
     ) where
 
-import           Data.Binary.Get      ( Get
-                                      , getWord64be
-                                      , getWord64le
-                                      , getWord8
-                                      , runGet )
+import           Data.Binary.Get
+                 ( Get
+                 , getLazyByteString
+                 , getWord64be
+                 , getWord64le
+                 , getWord8
+                 , runGet )
 import           Data.Binary.Put      ( Put
                                       , putLazyByteString
                                       , putWord64be
@@ -90,3 +94,13 @@ getVariableBytes = do
         rest <- getVariableBytes
         return $ rest .<<. 7 .|. fromIntegral (byte .&. 0x7f)
       else return $ fromIntegral byte
+
+putLuaString :: ByteString -> Put
+putLuaString bs = do
+  putVariableBytes (BS.length bs + 1)
+  putLazyByteString bs
+
+getLuaString :: Get ByteString
+getLuaString = do
+  len <- getVariableBytes
+  getLazyByteString (fromIntegral len - 1)

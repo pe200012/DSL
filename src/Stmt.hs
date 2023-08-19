@@ -7,13 +7,15 @@ module Stmt where
 
 import           Data.Text
 
+import           Development.Placeholders ( notImplemented )
+
 import           Polysemy
 
-import           Syntax    hiding ( Name )
+import           Syntax                   hiding ( Name )
 
 import           Transpile
 
-import           Types     hiding ( Name )
+import           Types                    hiding ( Name )
 
 type Name = Text
 
@@ -23,6 +25,5 @@ data Stmt m a where
 makeSem ''Stmt
 
 runStmt :: Member (Embed Transpile) r => Sem (Stmt ': r) a -> Sem r a
-runStmt = interpret
-    $ \case
-      Expr e -> undefined
+runStmt = interpret $ \case
+  Expr e -> $notImplemented

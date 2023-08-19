@@ -1,23 +1,26 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
 module Infer where
 
-import           Control.Applicative   ( Applicative(..) )
+import           Control.Applicative      ( Applicative(..) )
 import           Control.Monad.Except
 import           Control.Monad.RWS
 
 import           Data.Functor.Foldable
-import           Data.List             ( nub )
-import           Data.Map              as Map
-import           Data.Set              as Set
-import           Data.Text             ( Text
-                                       , pack )
+import           Data.List                ( nub )
+import           Data.Map                 as Map
+import           Data.Set                 as Set
+import           Data.Text                ( Text
+                                          , pack )
 
-import           Env                   hiding ( Name )
+import           Development.Placeholders ( notImplemented )
 
-import           Syntax                ( Expr(..)
-                                       , ExprF(..)
-                                       , typeName )
+import           Env                      hiding ( Name )
+
+import           Syntax                   ( Expr(..)
+                                          , ExprF(..)
+                                          , typeName )
 
 import           Types
 
@@ -64,11 +67,9 @@ instance Substitutable Type where
   ftv _ = Set.empty
 
 instance Substitutable Scheme where
-  apply s (Forall as t) = Forall as
-      $ apply s' t
+  apply s (Forall as t) = Forall as $ apply s' t
     where
-      s' = Subst
-          $ Prelude.foldr Map.delete (runSubst s) as
+      s' = Subst $ Prelude.foldr Map.delete (runSubst s) as
 
   ftv (Forall as t) = ftv t `Set.difference` Set.fromList as
 
@@ -83,55 +84,41 @@ instance (Substitutable a) => Substitutable [a] where
   ftv   = Prelude.foldr (Set.union . ftv) Set.empty
 
 instance Substitutable TypeEnv where
-  apply s (TypeEnv env) = TypeEnv
-      $ Map.map (apply s) env
+  apply s (TypeEnv env) = TypeEnv $ Map.map (apply s) env
 
-  ftv (TypeEnv env) = ftv
-      $ Map.elems env
+  ftv (TypeEnv env) = ftv $ Map.elems env
 
 fresh :: RWST TypeEnv [Constraint] InferState (Except TypeError) Type
 fresh = do
   s <- get
   put s { count = count s + 1 }
-  return
-      $ TVar
-      $ TV
-      $ "t" <> pack (show (count s))
+  return $ TVar $ TV $ "t" <> pack (show (count s))
 
 instantiate :: Scheme -> Infer Type
 instantiate (Forall as t) = do
   as' <- mapM (const fresh) as
-  let s = Subst
-          $ Map.fromList
-          $ Prelude.zip as as'
-  return
-      $ apply s t
+  let s = Subst $ Map.fromList $ Prelude.zip as as'
+  return $ apply s t
 
 generalize :: TypeEnv -> Type -> Scheme
 generalize env t = Forall as t
   where
-    as = Set.toList
-        $ ftv t `Set.difference` ftv env
+    as = Set.toList $ ftv t `Set.difference` ftv env
 
 runInfer :: TypeEnv -> Infer Type -> Either TypeError (Type, [Constraint])
-runInfer env m = runExcept
-    $ evalRWST m env (InferState 0)
+runInfer env m = runExcept $ evalRWST m env (InferState 0)
 
 inferExpr :: TypeEnv -> Expr -> Either TypeError Scheme
 inferExpr env expr = do
   (ty, cs) <- runInfer env (infer expr)
   subst <- runSolve cs
-  return
-      $ closeOver
-      $ apply subst ty
+  return $ closeOver $ apply subst ty
 
 check :: TypeEnv -> Infer Type -> Either TypeError Scheme
 check env m = do
   (ty, cs) <- runInfer env m
   subst <- runSolve cs
-  return
-      $ closeOver
-      $ apply subst ty
+  return $ closeOver $ apply subst ty
 
 closeOver :: Type -> Scheme
 closeOver = normalize . generalize Env.empty
@@ -163,55 +150,47 @@ inEnv (x, sc) m = do
   local scope m
 
 infer :: Expr -> Infer Type
-infer = cataA
-    $ \case
-      LitF l         -> return
-          $ TCon (typeName l)
-      VarF x         -> do
-        env <- ask
-        case Env.lookup x env of
-          Nothing -> throwError
-              $ UnboundVariable x
-          Just s  -> instantiate s
-      AppF e1 e2     -> do
-        tv <- fresh
-        t1 <- e1
-        t2 <- e2
-        uni t1 (TArr t2 tv)
-        return tv
-      LamF x e       -> do
-        tv <- fresh
-        t <- inEnv (x, Forall [] tv) e
-        return
-            $ TArr tv t
-      LetF x e1 e2   -> do
-        env <- ask
-        t1 <- e1
-        let sc = generalize env t1
-        inEnv (x, sc) e2
-      FixF e         -> do
-        tv <- fresh
-        t <- e
-        uni (tv `TArr` tv) t
-        return tv
-      IfF cond e1 e2 -> do
-        t1 <- cond
-        t2 <- e1
-        t3 <- e2
-        uni t1 (TCon "Bool")
-        uni t2 t3
-        return t2
-      BinOpF{}       -> undefined
+infer = cataA $ \case
+  LitF l         -> return $ TCon (typeName l)
+  VarF x         -> do
+    env <- ask
+    case Env.lookup x env of
+      Nothing -> throwError $ UnboundVariable x
+      Just s  -> instantiate s
+  AppF e1 e2     -> do
+    tv <- fresh
+    t1 <- e1
+    t2 <- e2
+    uni t1 (TArr t2 tv)
+    return tv
+  LamF x e       -> do
+    tv <- fresh
+    t <- inEnv (x, Forall [] tv) e
+    return $ TArr tv t
+  LetF x e1 e2   -> do
+    env <- ask
+    t1 <- e1
+    let sc = generalize env t1
+    inEnv (x, sc) e2
+  FixF e         -> do
+    tv <- fresh
+    t <- e
+    uni (tv `TArr` tv) t
+    return tv
+  IfF cond e1 e2 -> do
+    t1 <- cond
+    t2 <- e1
+    t3 <- e2
+    uni t1 (TCon "Bool")
+    uni t2 t3
+    return t2
+  BinOpF{}       -> $notImplemented
 
 bind :: TVar -> Type -> Solve Unifier
 bind a t
     | t == TVar a = return emptyUnifier
-    | a `Set.member` ftv t = throwError
-        $ InfiniteType a t
-    | otherwise = return ( Subst
-                           $ Map.singleton a t
-                         , []
-                         )
+    | a `Set.member` ftv t = throwError $ InfiniteType a t
+    | otherwise = return (Subst $ Map.singleton a t, [])
 
 unify :: Type -> Type -> Solve Unifier
 unify t1 t2
@@ -219,12 +198,10 @@ unify t1 t2
 unify (TVar v) t = v `bind` t
 unify t (TVar v) = v `bind` t
 unify (TArr t1 t2) (TArr t3 t4) = unifyMany [ t1, t2 ] [ t3, t4 ]
-unify t1 t2 = throwError
-    $ UnificationFail t1 t2
+unify t1 t2 = throwError $ UnificationFail t1 t2
 
 compose :: Subst -> Subst -> Subst
-compose s1 s2 = Subst
-    $ Map.map (apply s1) (runSubst s2) `Map.union` runSubst s1
+compose s1 s2 = Subst $ Map.map (apply s1) (runSubst s2) `Map.union` runSubst s1
 
 unifyMany :: [Type] -> [Type] -> Solve Unifier
 unifyMany [] [] = return emptyUnifier
@@ -232,8 +209,7 @@ unifyMany (t1 : ts1) (t2 : ts2) = do
   (s1, cs1) <- unify t1 t2
   (s2, cs2) <- unifyMany (apply s1 ts1) (apply s1 ts2)
   return (s2 `Infer.compose` s1, cs1 ++ cs2)
-unifyMany t1 t2 = throwError
-    $ UnificationMismatch t1 t2
+unifyMany t1 t2 = throwError $ UnificationMismatch t1 t2
 
 solver :: Unifier -> Solve Subst
 solver (su, cs) = do
@@ -257,8 +233,7 @@ infixr 1 .^
 v .^ t = do
   tv <- fresh
   u <- inEnv (v, Forall [] tv) (t tv)
-  return
-      $ TArr tv u
+  return $ TArr tv u
 
 fix :: Type -> Infer Type
 fix t = do
@@ -291,7 +266,6 @@ if_ t1 t2 t3 = do
 -- >>> example
 -- Right (Forall ["a"] (TArr (TCon "Bool") (TVar "a")))
 example :: Either TypeError Scheme
-example = check Env.empty
-    $ do
-      t <- "self" .^ \self -> "i" .^ \i -> if_ i (self @@ i) (self @@ i)
-      Infer.fix t
+example = check Env.empty $ do
+  t <- "self" .^ \self -> "i" .^ \i -> if_ i (self @@ i) (self @@ i)
+  Infer.fix t
