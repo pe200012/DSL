@@ -12,7 +12,10 @@
 module Bytecode where
 
 import           Control.Lens
-                 ( Lens'
+                 ( (&)
+                 , (.~)
+                 , (?~)
+                 , Lens'
                  , lens
                  , makeFields
                  , makeLenses
@@ -588,3 +591,7 @@ _Ax = lens (view (payload . to getAx)) (\i ax -> over payload (blit 7 25 ax) i)
 
 _sJ :: Lens' Instruction Word32
 _sJ = lens (view (payload . to getsJ)) (\i sJ -> over payload (blit 7 25 sJ) i)
+
+instr :: Opcode -> Word32 -> Word32 -> Word32 -> Word32 -> Instruction
+instr opcode a b c k =
+    0 & _opcode ?~ opcode & _A .~ a & _B .~ b & _C .~ c & _k .~ k

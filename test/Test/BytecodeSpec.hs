@@ -88,6 +88,23 @@ spec = do
         -- invoke `luac -l test.dummy` to see the result
         (code, out, err) <- readProcessWithExitCode "luac" [ "-l", path ] ""
         code `shouldBe` ExitSuccess
+    it "dummy return" $ do
+      let chunk =
+              Chunk { _header   = defaultHeader
+                    , _function =
+                          emptyMainFunction { _code =
+                                                  [ instr OP_VARARGPREP 0 0 0 0
+                                                  , instr OP_RETURN0 0 0 0 0
+                                                  ]
+                                            }
+                    }
+      withSystemTempFile "test.dummy" $ \path handle -> do
+        BS.hPut handle (encode chunk)
+        -- invoke `luac -l test.dummy` to see the result
+        (code, out, err) <- readProcessWithExitCode "luac" [ "-l", path ] ""
+        code `shouldBe` ExitSuccess
+        (code, out, err) <- readProcessWithExitCode "lua" [ path ] ""
+        code `shouldBe` ExitSuccess
   where
     prepareInstruction = do
       a <- forAll $ integral (linear 0 (2 ^ 8 - 1))
