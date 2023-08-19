@@ -17,6 +17,8 @@ import           Control.Lens
                  , over
                  , to
                  , view )
+import           Control.Monad.Loops      ( whileM_ )
+import           Control.Monad.ST
 
 import           Data.Binary          ( Binary(..)
                                       , encode )
@@ -24,7 +26,7 @@ import           Data.Bits            ( (.<<.)
                                       , (.>>.)
                                       , Bits(..) )
 import           Data.ByteString.Lazy ( ByteString )
-import           Data.Word            ( Word32
+import           Data.STRef
                                       , Word64
                                       , Word8 )
 
@@ -142,12 +144,25 @@ instance Show Instruction where
 -- | clear out certain bits in a word
 {-# INLINE mask #-}
 mask :: Int -> Int -> Word32 -> Word32
-mask start len w = w .&. complement (((1 .<<. len) - 1) .<<. start)
+mask start len w = runST $ do
+  i <- newSTRef start
+  w' <- newSTRef w
+  whileM_ ((start + len >) <$> readSTRef i) $ do
+    modifySTRef w' . flip clearBit =<< readSTRef i
+    modifySTRef i succ
+  readSTRef w'
 
 {-# INLINE blit #-}
 blit :: Int -> Int -> Word32 -> Word32 -> Word32
-blit start len src dst = mask start len dst
-    .|. ((src .&. ((1 .<<. len) - 1)) .<<. start)
+blit start len src dst = runST $ do
+  i <- newSTRef start
+  dst' <- newSTRef dst
+  whileM_ ((start + len >) <$> readSTRef i) $ do
+    modifySTRef dst'
+        . (\i w -> if testBit src i then setBit w i else clearBit w i)
+        =<< readSTRef i
+    modifySTRef i succ
+  readSTRef dst'
 
 {-# INLINE getA #-}
 getA :: Word32 -> Word32

@@ -36,6 +36,7 @@ dependencies:
   - text
   - placeholders
   - hedgehog
+  - monad-loops
 
 ghc-options:
   - -Wall
