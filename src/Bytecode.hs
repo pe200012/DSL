@@ -5,6 +5,8 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Bytecode where
@@ -20,23 +22,49 @@ import           Control.Lens
 import           Control.Monad.Loops      ( whileM_ )
 import           Control.Monad.ST
 
-import           Data.Binary          ( Binary(..)
-                                      , encode )
-import           Data.Bits            ( (.<<.)
-                                      , (.>>.)
-                                      , Bits(..) )
-import           Data.ByteString.Lazy ( ByteString )
+import           Data.Binary              ( Binary(..) )
+import           Data.Binary.Get          ( getLazyByteString
+                                          , getWord64le )
+import           Data.Binary.Put          ( putLazyByteString
+                                          , putWord64le )
+import           Data.Bits                ( (.<<.)
+                                          , (.>>.)
+                                          , Bits(..) )
+import           Data.ByteString.Lazy     ( ByteString )
 import           Data.STRef
-                                      , Word64
-                                      , Word8 )
+import           Data.Word                ( Word32
+                                          , Word64
+                                          , Word8 )
 
-import           Text.Printf          ( printf )
+import           Development.Placeholders ( notImplemented )
+
+import           Text.Printf              ( printf )
+
+import           Utils                    ( decodeIEEEDouble
+                                          , encodeIEEEDouble )
+
+data Chunk = Chunk { _header :: Header, _function :: Function }
+    deriving ( Show )
+
+instance Binary Chunk where
+  get   = do
+    header <- get @Header
+    numUpValues <- get @Word8
+    -- function <- get
+    -- pure Chunk { _header = header, _function = function }
+    $notImplemented
+
+  put c = do
+    put (_header c)
+    put @Word8 (fromIntegral (length (_upvalues (_function c))))
+    -- put (_function c)
+    $notImplemented
 
 -- | Lua 5.4 bytecode header
 data Header = Header { _signature       :: Word32  -- ^ 0x1B4C7561, or "\x1BLua"
                      , _version         :: Word8   -- ^ 0x54
                      , _format          :: Word8   -- ^ 0, official format
-                     , _luacData        :: [Word8] -- ^ "\x19\x93\r\n\x1a\n"
+                     , _luacData        :: ByteString -- ^ "\x19\x93\r\n\x1a\n"
                      , _instructionSize :: Word8   -- ^ 4
                      , _luaIntegerSize  :: Word8   -- ^ 8
                      , _luaNumberSize   :: Word8   -- ^ 8
@@ -51,7 +79,7 @@ defaultHeader =
     Header { _signature       = 0x1B4C7561
            , _version         = 0x54
            , _format          = 0
-           , _luacData        = [ 0x19, 0x93, 0x0D, 0x0A, 0x1A, 0x0A ]
+           , _luacData        = "\x19\x93\r\n\x1a\n"
            , _instructionSize = 4
            , _luaIntegerSize  = 8
            , _luaNumberSize   = 8
@@ -67,12 +95,12 @@ instance Binary Header where
     signature <- get
     version <- get
     format <- get
-    luacData <- get
+    luacData <- getLazyByteString 6
     instructionSize <- get
     luaIntegerSize <- get
     luaNumberSize <- get
-    luacInt <- get
-    luacNum <- get
+    luacInt <- getWord64le
+    luacNum <- decodeIEEEDouble True <$> getLazyByteString 8
     pure Header { _signature       = signature
                 , _version         = version
                 , _format          = format
@@ -88,12 +116,12 @@ instance Binary Header where
     put (_signature h)
     put (_version h)
     put (_format h)
-    put (_luacData h)
+    putLazyByteString (_luacData h)
     put (_instructionSize h)
     put (_luaIntegerSize h)
     put (_luaNumberSize h)
-    put (_luacInt h)
-    put (_luacNum h)
+    putWord64le (_luacInt h)
+    putLazyByteString (encodeIEEEDouble True (_luacNum h))
 
 data Function =
     Function { _srcFile :: ByteString
@@ -108,14 +136,38 @@ data Function =
              , _protos :: [Function]
              , _debug :: DebugInfo
              }
+    deriving ( Show )
+
+emptyFunction :: Function
+emptyFunction =
+    Function { _srcFile = ""
+             , _lineDefined = 0
+             , _lastLineDefined = 0
+             , _numParams = 0
+             , _isVararg = 0
+             , _maxStackSize = 0
+             , _code = []
+             , _constants = []
+             , _upvalues = []
+             , _protos = []
+             , _debug = DebugInfo [] [] []
+             }
+
+instance Binary Function where
+  get = do
+    $notImplemented
+
+  put = $notImplemented
 
 data DebugInfo = DebugInfo { _debugLineInfo :: [DebugLineInfo]
                            , _debugLocals   :: [Local]
                            , _debugUpvalues :: [UpValue]
                            }
+    deriving ( Show )
 
 data DebugLineInfo =
     DebugLineInfo { _debugLineInfoPc :: Word32, _debugLineInfoLine :: Word32 }
+    deriving ( Show )
 
 {-
 Ref: https://www.lua.org/source/5.4/lopcodes.h.html
@@ -322,9 +374,13 @@ data UpValue = UpValue { _upvalueName    :: ByteString
                        , _upvalueIdx     :: Word8
                        , _upvalueKind    :: Word8
                        }
+    deriving ( Show )
 
 data Local =
     Local { _localName :: ByteString, _localPc :: Word32, _localEnd :: Word32 }
+    deriving ( Show )
+
+makeLenses ''Chunk
 
 makeLenses ''Header
 

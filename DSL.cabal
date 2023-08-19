@@ -32,6 +32,7 @@ library
       Syntax
       Transpile
       Types
+      Utils
   other-modules:
       Paths_DSL
   hs-source-dirs:
@@ -53,8 +54,10 @@ library
     , binary
     , bytestring
     , containers
+    , ghc-prim
     , hedgehog
     , lens
+    , monad-loops
     , mtl
     , placeholders
     , polysemy
@@ -90,8 +93,10 @@ executable DSL-exe
     , binary
     , bytestring
     , containers
+    , ghc-prim
     , hedgehog
     , lens
+    , monad-loops
     , mtl
     , placeholders
     , polysemy
@@ -131,8 +136,10 @@ test-suite DSL-test
     , binary
     , bytestring
     , containers
+    , ghc-prim
     , hedgehog
     , lens
+    , monad-loops
     , mtl
     , placeholders
     , polysemy
