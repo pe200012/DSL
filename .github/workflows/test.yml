@@ -1,4 +1,4 @@
-name: lint
+name: test
 on:
   pull_request:
     types: [opened, reopened]
@@ -17,6 +17,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Set up Clang
+        uses: egor-tensin/setup-clang@v1
+        with:
+          version: latest
+          platform: x64
       - uses: haskell/actions/setup@v2
         name: Setup Haskell Stack
         with:
