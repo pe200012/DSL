@@ -10,12 +10,14 @@ import           Control.Lens         ( (^.)
                                       , view )
 import           Control.Monad        ( when )
 
-import           Data.Binary          ( encode )
+import           Data.Binary          ( decode
+                                      , encode )
 import           Data.Bits
 import qualified Data.ByteString.Lazy as BS
 import           Data.Foldable        ( for_ )
 import           Data.List            ( isSuffixOf )
 import qualified Data.Text            as T
+import qualified Data.Text.Lazy       as T
 import           Data.Traversable     ( for )
 import           Data.Word            ( Word32
                                       , Word64 )
@@ -44,6 +46,7 @@ import           System.Process       ( readProcessWithExitCode )
 import           Test.Syd
 import           Test.Syd.Hedgehog    ()
 
+import           Text.Pretty.Simple   ( pShowNoColor )
 import           Text.Printf          ( printf )
 
 import           Utils
@@ -103,6 +106,28 @@ spec = do
         view _sBx total === getBx total' - (2 ^ (16 :: Int))
         view _Ax total === ax
         view _sJ total === ax - (2 ^ (24 :: Int))
+  describe "Bytecode decoding" $ do
+    let base = "test/Test/decode_chunk_tests"
+    scenarioDir base
+        $ \file -> when (".lua" `isSuffixOf` file) $ it "decodes" $ do
+          let bc     = file <> ".bytecode"
+              golden = file <> ".chunk"
+          goldenTextFile golden $ do
+            (code, out, err)
+                <- readProcessWithExitCode "luac" [ "-o", bc, file ] ""
+            code `shouldBe` ExitSuccess
+            chunk <- decode @Chunk <$> BS.readFile bc
+            pure (T.toStrict $ pShowNoColor chunk)
+    scenarioDir base $ \file ->
+        when (".lua" `isSuffixOf` file) $ it "decodes without debug info" $ do
+          let bc     = file <> ".no_debug.bytecode"
+              golden = file <> ".no_debug.chunk"
+          goldenTextFile golden $ do
+            (code, out, err)
+                <- readProcessWithExitCode "luac" [ "-o", bc, "-s", file ] ""
+            code `shouldBe` ExitSuccess
+            chunk <- decode @Chunk <$> BS.readFile bc
+            pure (T.toStrict $ pShowNoColor chunk)
   describe "Bytecode emitting" $ do
     let base = "test/Test/chunk_tests"
     scenarioDir base
@@ -110,14 +135,7 @@ spec = do
           let name = dropExtension file
               dump = name <> ".dump"
           chunk <- read @Chunk <$> readFile file
-          return $ goldenStringFile (name <> ".golden") $ do
-            withFile dump WriteMode $ \handle -> do
-              BS.hPut handle (encode chunk)
-              -- invoke `luac -l test.dummy` to see the result
-              (code, out, err)
-                  <- readProcessWithExitCode "luac" [ "-l", "-l", dump ] ""
-              code `shouldBe` ExitSuccess
-              pure (err <> out)
+          decode (encode chunk) `shouldBe` chunk
     it "dummy return" $ do
       let chunk =
               Chunk { _header   = defaultHeader

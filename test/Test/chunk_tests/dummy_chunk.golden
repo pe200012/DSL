@@ -1,9 +1,0 @@
-
-main <test/Test/chunk_tests/dummy_chunk.dump:0,0> (2 instructions at 0x15b607370)
-0+ params, 2 slots, 1 upvalue, 0 locals, 0 constants, 0 functions
-	1	[1]	VARARGPREP	0
-	2	[1]	RETURN   	0 1 1	; 0 out
-constants (0) for 0x15b607370:
-locals (0) for 0x15b607370:
-upvalues (1) for 0x15b607370:
-	0	_ENV	1	0

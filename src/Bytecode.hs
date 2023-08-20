@@ -56,7 +56,8 @@ import           Utils
 
 data Chunk = Chunk { _header :: Header, _function :: Function }
     deriving ( Show
-             , Read )
+             , Read
+             , Eq )
 
 instance Binary Chunk where
   get   = do
@@ -148,7 +149,8 @@ data Function =
              , _debug :: DebugInfo
              }
     deriving ( Show
-             , Read )
+             , Read
+             , Eq )
 
 emptyFunction :: Function
 emptyFunction =
@@ -222,7 +224,8 @@ data DebugInfo = DebugInfo { _debugLineInfo    :: ByteString
                            , _debugUpvalues    :: [ByteString]
                            }
     deriving ( Show
-             , Read )
+             , Read
+             , Eq )
 
 instance Binary DebugInfo where
   get   = do
@@ -253,7 +256,8 @@ instance Binary DebugInfo where
 data DebugLineInfo =
     DebugLineInfo { _debugLineInfoPc :: Word64, _debugLineInfoLine :: Word64 }
     deriving ( Show
-             , Read )
+             , Read
+             , Eq )
 
 instance Binary DebugLineInfo where
   get   = do
@@ -504,7 +508,8 @@ data UpValue = UpValue { _upvalueName    :: ByteString
                        , _upvalueKind    :: Word8
                        }
     deriving ( Show
-             , Read )
+             , Read
+             , Eq )
 
 instance Binary UpValue where
   get   = do
@@ -525,7 +530,8 @@ instance Binary UpValue where
 data Local =
     Local { _localName :: ByteString, _localPc :: Word64, _localEnd :: Word64 }
     deriving ( Show
-             , Read )
+             , Read
+             , Eq )
 
 instance Binary Local where
   get   = do

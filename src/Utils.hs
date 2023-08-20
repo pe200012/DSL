@@ -90,10 +90,10 @@ getVariableBytes :: Get Word64
 getVariableBytes = do
   byte <- getWord8
   if testBit byte 7
-      then do
+      then return $ fromIntegral (byte .&. 0x7f)
+      else do
         rest <- getVariableBytes
-        return $ rest .<<. 7 .|. fromIntegral (byte .&. 0x7f)
-      else return $ fromIntegral byte
+        return $ rest .<<. 7 .|. fromIntegral byte
 
 putLuaString :: ByteString -> Put
 putLuaString bs = do
