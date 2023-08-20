@@ -1,0 +1,43 @@
+Chunk
+    { _header = Header
+        { _signature = 457995617
+        , _version = 84
+        , _format = 0
+        , _luacData = "\x19\x93\xd
+          \x1a
+          "
+        , _instructionSize = 4
+        , _luaIntegerSize = 8
+        , _luaNumberSize = 8
+        , _luacInt = 22136
+        , _luacNum = 370.5
+        }
+    , _function = Function
+        { _srcFile = ""
+        , _lineDefined = 0
+        , _lastLineDefined = 0
+        , _numParams = 0
+        , _isVararg = 1
+        , _maxStackSize = 2
+        , _code =
+            [ 0x00000051
+            , 0x01010046
+            ]
+        , _constants = []
+        , _upvalues =
+            [ UpValue
+                { _upvalueName = ""
+                , _upvalueInstack = 1
+                , _upvalueIdx = 0
+                , _upvalueKind = 0
+                }
+            ]
+        , _protos = []
+        , _debug = DebugInfo
+            { _debugLineInfo = ""
+            , _debugAbsLineInfo = []
+            , _debugLocals = []
+            , _debugUpvalues = []
+            }
+        }
+    }
