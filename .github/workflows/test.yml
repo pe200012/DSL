@@ -1,0 +1,43 @@
+name: lint
+on:
+  pull_request:
+    types: [opened, reopened]
+  push:
+    branches:
+      - master
+
+jobs:
+  stack:
+    name: stack / ghc-${{ matrix.os }}-${{ matrix.ghc }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        ghc: ["9.4.5"]
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+            # best effort for cache: tie it to Stack resolver and package config
+          key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock', 'package.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-stack
+      - uses: haskell/actions/setup@v2
+        name: Setup Haskell Stack
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          enable-stack: true
+          stack-version: "latest"
+      - name: Install dependencies
+        run: |
+          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --only-dependencies
+      - name: Build
+        run: |
+          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks
+      - name: Test
+        run: |
+          stack test --system-ghc
