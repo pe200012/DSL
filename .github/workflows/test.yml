@@ -39,7 +39,7 @@ jobs:
           key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock', 'package.yaml') }}
       - name: Install dependencies
         run: |
-          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --only-dependencies --ghc-options
+          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --only-dependencies
       - uses: actions/cache/save@v3
         if: always()
         with:
@@ -52,7 +52,7 @@ jobs:
             ${{ runner.os }}-stack
       - name: Build
         run: |
-          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --ghc-options
+          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks
       - name: Test
         run: |
-          stack test --system-ghc --ghc-options -fllvm
+          stack test --system-ghc
