@@ -28,9 +28,11 @@ import           Control.Monad.ST     ( runST )
 
 import           Data.Binary          ( Binary(..) )
 import           Data.Binary.Get      ( getLazyByteString
+                                      , getWord32le
                                       , getWord64le
                                       , getWord8 )
 import           Data.Binary.Put      ( putLazyByteString
+                                      , putWord32le
                                       , putWord64le
                                       , putWord8 )
 import           Data.Bits            ( (.>>.)
@@ -288,8 +290,12 @@ isJ                           sJ (signed)(25)            |   Op(7)     |
 newtype Instruction = Instruction { _payload :: Word32 }
     deriving newtype ( Eq
                      , Num
-                     , Read
-                     , Binary )
+                     , Read )
+
+instance Binary Instruction where
+  get = Instruction <$> getWord32le
+
+  put (Instruction w) = putWord32le w
 
 instance Show Instruction where
   show = printf "%#.8x" . _payload
