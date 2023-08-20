@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -9,7 +7,7 @@
 
 {-# LANGUAGE TypeFamilies #-}
 
-module Syntax where
+module Syntax ( module Syntax ) where
 
 import           Data.Functor.Foldable
 import           Data.Functor.Foldable.TH
@@ -74,52 +72,30 @@ if_ :: Expr -> Expr -> Expr -> Expr
 if_ = If
 
 transpileExpr :: Expr -> Text
-transpileExpr = cata
-    $ \case
-      VarF name          -> name
-      AppF f x           -> f <> "(" <> x <> ")"
-      LamF name body     -> "fun " <> name <> " -> " <> body
-      FixF body          -> body
-      LetF name val body -> "let " <> name <> " = " <> val <> " in " <> body
-      LitF lit           -> pack
-          $ show lit
-      IfF cond t f       -> "if " <> cond <> " then " <> t <> " else " <> f
-      BinOpF op l r      -> l <> " " <> op <> " " <> r
+transpileExpr = cata $ \case
+  VarF name          -> name
+  AppF f x           -> f <> "(" <> x <> ")"
+  LamF name body     -> "fun " <> name <> " -> " <> body
+  FixF body          -> body
+  LetF name val body -> "let " <> name <> " = " <> val <> " in " <> body
+  LitF lit           -> pack $ show lit
+  IfF cond t f       -> "if " <> cond <> " then " <> t <> " else " <> f
+  BinOpF op l r      -> l <> " " <> op <> " " <> r
 
 -- >>> transpileExpr example
 -- "let x = 1 in let y = 2 in x"
 example :: Expr
-example = let_ "x"
-               (Lit
-                $ Li 1)
-    $ let_ "y"
-           (Lit
-            $ Li 2)
-    $ var "x"
+example = let_ "x" (Lit $ Li 1) $ let_ "y" (Lit $ Li 2) $ var "x"
 
 -- >>> transpileExpr fib
 -- "fun f -> fun n -> if n = 0 then 1 else if n = 1 then 1 else f(n - 1) + f(n - 2)"
 fib :: Expr
 fib = "f"
-    .^ ("n" .^ if_ (BinOp "="
-                          (var "n")
-                          (Lit
-                           $ Li 0))
-                   (Lit
-                    $ Li 1)
-                   (if_ (BinOp "="
-                               (var "n")
-                               (Lit
-                                $ Li 1))
-                        (Lit
-                         $ Li 1)
+    .^ ("n" .^ if_ (BinOp "=" (var "n") (Lit $ Li 0))
+                   (Lit $ Li 1)
+                   (if_ (BinOp "=" (var "n") (Lit $ Li 1))
+                        (Lit $ Li 1)
                         (BinOp "+"
-                               (var "f" @@ BinOp "-"
-                                                 (var "n")
-                                                 (Lit
-                                                  $ Li 1))
-                               (var "f" @@ BinOp "-"
-                                                 (var "n")
-                                                 (Lit
-                                                  $ Li 2)))))
+                               (var "f" @@ BinOp "-" (var "n") (Lit $ Li 1))
+                               (var "f" @@ BinOp "-" (var "n") (Lit $ Li 2)))))
 

@@ -22,6 +22,9 @@ jobs:
         with:
           version: latest
           platform: x64
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.4"
       - uses: haskell/actions/setup@v2
         name: Setup Haskell Stack
         with:
@@ -36,7 +39,7 @@ jobs:
           key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock', 'package.yaml') }}
       - name: Install dependencies
         run: |
-          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --only-dependencies --ghc-options -fllvm
+          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --only-dependencies --ghc-options
       - uses: actions/cache/save@v3
         if: always()
         with:
@@ -49,7 +52,7 @@ jobs:
             ${{ runner.os }}-stack
       - name: Build
         run: |
-          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --ghc-options -fllvm
+          stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --ghc-options
       - name: Test
         run: |
           stack test --system-ghc --ghc-options -fllvm

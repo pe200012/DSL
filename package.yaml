@@ -51,6 +51,7 @@ ghc-options:
   - -Wredundant-constraints
   - -fplugin=Polysemy.Plugin
   - -O2
+  - -fllvm
 
 default-extensions:
   - OverloadedStrings
