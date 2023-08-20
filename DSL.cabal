@@ -137,6 +137,8 @@ test-suite DSL-test
     , binary
     , bytestring
     , containers
+    , directory
+    , filepath
     , ghc-prim
     , hedgehog
     , lens

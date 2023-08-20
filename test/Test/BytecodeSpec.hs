@@ -5,25 +5,46 @@ module Test.BytecodeSpec where
 
 import           Bytecode
 
+import           Control.Arrow        ( Arrow(..) )
 import           Control.Lens         ( (^.)
                                       , view )
+import           Control.Monad        ( when )
 
 import           Data.Binary          ( encode )
 import           Data.Bits
 import qualified Data.ByteString.Lazy as BS
+import           Data.Foldable        ( for_ )
+import           Data.List            ( isSuffixOf )
+import qualified Data.Text            as T
+import           Data.Traversable     ( for )
 import           Data.Word            ( Word32
                                       , Word64 )
 
 import           Hedgehog
 import           Hedgehog.Gen
-import           Hedgehog.Range
+                 ( bool
+                 , double
+                 , enumBounded
+                 , integral
+                 , word32
+                 , word64 )
+import           Hedgehog.Range       ( constantBounded
+                                      , linear )
 
+import           System.Directory     ( getDirectoryContents )
 import           System.Exit          ( ExitCode(ExitSuccess) )
-import           System.IO.Temp       ( withSystemTempFile )
+import           System.FilePath      ( dropExtension
+                                      , takeFileName )
+import           System.IO            ( IOMode(WriteMode)
+                                      , withFile )
+import           System.IO.Temp       ( withSystemTempFile
+                                      , withTempFile )
 import           System.Process       ( readProcessWithExitCode )
 
 import           Test.Syd
 import           Test.Syd.Hedgehog    ()
+
+import           Text.Printf          ( printf )
 
 import           Utils
 
@@ -54,6 +75,9 @@ spec = do
           $ do
             (opcode :: Opcode) <- forAll enumBounded
             getOpcode (fromIntegral (fromEnum opcode)) === Just opcode
+      it "check instr correctness" $ property $ do
+        (opcode :: Opcode) <- forAll enumBounded
+        instr opcode (IABCk 0 0 0 False) ^. _opcode === Just opcode
       it "getOpcode consistent" $ property $ do
         (a, b, c, ax, total, op) <- prepareInstruction
         getOpcode total === Just op
@@ -80,21 +104,29 @@ spec = do
         view _Ax total === ax
         view _sJ total === ax - (2 ^ (24 :: Int))
   describe "Bytecode emitting" $ do
-    it "dummy chunk" $ do
-      let chunk =
-              Chunk { _header = defaultHeader, _function = emptyMainFunction }
-      withSystemTempFile "test.dummy" $ \path handle -> do
-        BS.hPut handle (encode chunk)
-        -- invoke `luac -l test.dummy` to see the result
-        (code, out, err) <- readProcessWithExitCode "luac" [ "-l", path ] ""
-        code `shouldBe` ExitSuccess
+    let base = "test/Test/chunk_tests"
+    scenarioDir base
+        $ \file -> when (".chunk" `isSuffixOf` file) $ it "decompiles" $ do
+          let name = dropExtension file
+              dump = name <> ".dump"
+          chunk <- read @Chunk <$> readFile file
+          return $ goldenStringFile (name <> ".golden") $ do
+            withFile dump WriteMode $ \handle -> do
+              BS.hPut handle (encode chunk)
+              -- invoke `luac -l test.dummy` to see the result
+              (code, out, err)
+                  <- readProcessWithExitCode "luac" [ "-l", "-l", dump ] ""
+              code `shouldBe` ExitSuccess
+              pure (err <> out)
     it "dummy return" $ do
       let chunk =
               Chunk { _header   = defaultHeader
                     , _function =
                           emptyMainFunction { _code =
-                                                  [ instr OP_VARARGPREP 0 0 0 0
-                                                  , instr OP_RETURN0 0 0 0 0
+                                                  [ instr OP_VARARGPREP
+                                                          (IABCk 0 0 0 False)
+                                                  , instr OP_RETURN0
+                                                          (IABCk 0 0 0 False)
                                                   ]
                                             }
                     }
@@ -114,5 +146,3 @@ spec = do
       let ax    = a .|. (b .<<. 8) .|. (c .<<. 17)
           total = (ax .<<. 7) .|. fromIntegral (fromEnum opcode)
       pure (a, b, c, ax, total, opcode)
-
-

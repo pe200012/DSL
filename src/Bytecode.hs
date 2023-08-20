@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Bytecode where
+module Bytecode ( module Bytecode ) where
 
 import           Control.Lens
                  ( (&)
@@ -55,7 +55,8 @@ import           Utils
                  , putVariableBytes )
 
 data Chunk = Chunk { _header :: Header, _function :: Function }
-    deriving ( Show )
+    deriving ( Show
+             , Read )
 
 instance Binary Chunk where
   get   = do
@@ -81,6 +82,7 @@ data Header = Header { _signature       :: Word32  -- ^ 0x1B4C7561, or "\x1BLua"
                      , _luacNum         :: Double  -- ^ 370.5
                      }
     deriving ( Show
+             , Read
              , Eq )
 
 defaultHeader :: Header
@@ -145,7 +147,8 @@ data Function =
              , _protos :: [Function]
              , _debug :: DebugInfo
              }
-    deriving ( Show )
+    deriving ( Show
+             , Read )
 
 emptyFunction :: Function
 emptyFunction =
@@ -218,7 +221,8 @@ data DebugInfo = DebugInfo { _debugLineInfo    :: ByteString
                            , _debugLocals      :: [Local]
                            , _debugUpvalues    :: [ByteString]
                            }
-    deriving ( Show )
+    deriving ( Show
+             , Read )
 
 instance Binary DebugInfo where
   get   = do
@@ -248,7 +252,8 @@ instance Binary DebugInfo where
 
 data DebugLineInfo =
     DebugLineInfo { _debugLineInfoPc :: Word64, _debugLineInfoLine :: Word64 }
-    deriving ( Show )
+    deriving ( Show
+             , Read )
 
 instance Binary DebugLineInfo where
   get   = do
@@ -279,6 +284,7 @@ isJ                           sJ (signed)(25)            |   Op(7)     |
 newtype Instruction = Instruction { _payload :: Word32 }
     deriving newtype ( Eq
                      , Num
+                     , Read
                      , Binary )
 
 instance Show Instruction where
@@ -438,6 +444,7 @@ data Opcode
     | OP_VARARGPREP  -- ^ A       (adjust vararg parameters)
     | OP_EXTRAARG  -- ^   Ax      extra (larger) argument for previous opcode
     deriving ( Show
+             , Read
              , Eq
              , Enum
              , Bounded )
@@ -458,6 +465,7 @@ data Constant
     | LUA_VSHRSTR ByteString
     | LUA_VLNGSTR ByteString
     deriving ( Show
+             , Read
              , Eq )
 
 instance Binary Constant where
@@ -495,7 +503,8 @@ data UpValue = UpValue { _upvalueName    :: ByteString
                        , _upvalueIdx     :: Word8
                        , _upvalueKind    :: Word8
                        }
-    deriving ( Show )
+    deriving ( Show
+             , Read )
 
 instance Binary UpValue where
   get   = do
@@ -515,7 +524,8 @@ instance Binary UpValue where
 
 data Local =
     Local { _localName :: ByteString, _localPc :: Word64, _localEnd :: Word64 }
-    deriving ( Show )
+    deriving ( Show
+             , Read )
 
 instance Binary Local where
   get   = do
@@ -592,6 +602,23 @@ _Ax = lens (view (payload . to getAx)) (\i ax -> over payload (blit 7 25 ax) i)
 _sJ :: Lens' Instruction Word32
 _sJ = lens (view (payload . to getsJ)) (\i sJ -> over payload (blit 7 25 sJ) i)
 
-instr :: Opcode -> Word32 -> Word32 -> Word32 -> Word32 -> Instruction
-instr opcode a b c k =
-    0 & _opcode ?~ opcode & _A .~ a & _B .~ b & _C .~ c & _k .~ k
+data InstrArg
+    = IABCk Word8 Word8 Word8 Bool
+    | IABx Word8 Word32
+    | IAsBx Word8 Word32
+    | IAx Word32
+    | IsJ Word32
+    deriving ( Show
+             , Read )
+
+fillArg :: InstrArg -> Instruction -> Instruction
+fillArg arg i = case arg of
+  IABCk a b c k -> i & _A .~ fromIntegral a & _B .~ fromIntegral b
+      & _C .~ fromIntegral c & _k .~ fromIntegral (fromEnum k)
+  IABx a bx     -> i & _A .~ fromIntegral a & _Bx .~ bx
+  IAsBx a sBx   -> i & _A .~ fromIntegral a & _sBx .~ sBx
+  IAx ax        -> i & _Ax .~ ax
+  IsJ sJ        -> i & _sJ .~ sJ
+
+instr :: Opcode -> InstrArg -> Instruction
+instr op arg = fillArg arg (0 & _opcode ?~ op)

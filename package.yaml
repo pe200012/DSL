@@ -94,3 +94,5 @@ tests:
       - random
       - process
       - temporary
+      - directory
+      - filepath
